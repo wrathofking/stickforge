@@ -1,0 +1,96 @@
+<?php
+/**
+ * StickForge 2D v5.0 - Production Web Application Entry Point
+ * Web-ready with security headers and API bridge
+ */
+
+// Security Headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
+// Check if server API keys are active
+$configPath = __DIR__ . '/api/config.php';
+$hasServerKeys = false;
+if (file_exists($configPath)) {
+    require_once $configPath;
+    $hasServerKeys = !empty(sf_get_api_key('gemini'));
+}
+?>
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="StickForge 2D Studio - Modular AI Stick-Story, Motion & Video Production Suite" />
+  <title>StickForge 2D v5.0 — Complete Modular AI Stick-Story &amp; Motion Studio</title>
+
+  <!-- External Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Separated Tailwind Configuration Script -->
+  <script src="assets/js/tailwind-config.js"></script>
+
+  <!-- Separated Application Stylesheet -->
+  <link rel="stylesheet" href="assets/css/main.css" />
+
+  <!-- Icons & Web App Manifest -->
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
+  <link rel="manifest" href="manifest.json" />
+
+  <script>
+    // Server-injected configuration flags
+    window.STICKFORGE_SERVER_CONFIG = {
+      serverKeysConfigured: <?php echo $hasServerKeys ? 'true' : 'false'; ?>,
+      apiBase: "./api",
+      phpActive: true
+    };
+  </script>
+</head>
+<body class="min-h-screen flex flex-col select-none bg-studio-bg text-slate-100 font-sans">
+
+  <!-- ===================================================================== -->
+  <!-- MODULAR CUSTOM WEB COMPONENTS APPLICATION SHELL                       -->
+  <!-- ===================================================================== -->
+
+  <!-- Top Studio Header Navigation -->
+  <sf-header></sf-header>
+
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
+    <!-- Left Hub: Storyboard Shots, Gemini Script Generator, Style DNA Cloner & TTS Settings -->
+    <sf-left-creation-hub class="lg:col-span-3 bg-studio-panel border-b lg:border-b-0 lg:border-r border-studio-border flex flex-col h-[440px] lg:h-[calc(100vh-210px)]"></sf-left-creation-hub>
+
+    <!-- Center Stage: Articulated 16-Joint 2D Canvas + AI Director Bar + Real-time Playback -->
+    <sf-stage-canvas class="lg:col-span-6 bg-studio-bg flex flex-col justify-between p-2.5 h-[480px] lg:h-[calc(100vh-210px)] overflow-y-auto"></sf-stage-canvas>
+
+    <!-- Right Inspector: Google Flow 2D Background Studio + Actor Rig & Prop Socket Attachments -->
+    <sf-inspector class="lg:col-span-3 bg-studio-panel border-t lg:border-t-0 lg:border-l border-studio-border flex flex-col h-[440px] lg:h-[calc(100vh-210px)] overflow-y-auto p-2.5 space-y-2.5"></sf-inspector>
+  </main>
+
+  <!-- Bottom Multi-Track Timeline & Audio Scrubber -->
+  <sf-timeline class="bg-studio-panel border-t border-studio-border px-3 py-2 h-[148px] flex flex-col justify-between z-20"></sf-timeline>
+
+  <!-- Modals: Motion Studio, Project & Cloud Sync, AI Gateway Settings & Module Exporter -->
+  <sf-motion-modal></sf-motion-modal>
+  <sf-cloud-modal></sf-cloud-modal>
+  <sf-api-modal></sf-api-modal>
+  <sf-module-exporter-modal></sf-module-exporter-modal>
+
+  <!-- Toast Notification Anchor -->
+  <div id="toastContainer"></div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION SCRIPTS (LOADED IN DEPENDENCY ORDER)                      -->
+  <!-- ===================================================================== -->
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/services-ai.js"></script>
+  <script src="assets/js/renderer-2d.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+/* =====================================================================
+   StickForge 2D - Theme Variables & Design Tokens
+   ===================================================================== */
+:root {
+  --color-studio-bg: #080b10;
+  --color-studio-panel: #10151f;
+  --color-studio-card: #161d2b;
+  --color-studio-border: #242f46;
+  --color-studio-border-hover: #3b4c6e;
+  --color-studio-accent: #6366f1;
+  --color-studio-accent-hover: #4f46e5;
+  --color-studio-emerald: #10b981;
+  --color-studio-amber: #f59e0b;
+  --color-studio-rose: #f43f5e;
+  --color-studio-sky: #38bdf8;
+  --color-text-main: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-text-subtle: #64748b;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

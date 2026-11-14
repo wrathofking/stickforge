@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  stickforge:
+    build: .
+    container_name: stickforge_studio
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=gemini-2.5-flash
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - ALLOW_CLIENT_BYOK=true
+      - PROJECTS_STORAGE_PATH=../data/projects
+      # Amazon Aurora RDS Configuration
+      - AURORA_RDS_ENABLED=${AURORA_RDS_ENABLED:-false}
+      - AURORA_RDS_ENGINE=${AURORA_RDS_ENGINE:-postgres}
+      - AURORA_RDS_HOST=${AURORA_RDS_HOST:-}
+      - AURORA_RDS_PORT=${AURORA_RDS_PORT:-5432}
+      - AURORA_RDS_DATABASE=${AURORA_RDS_DATABASE:-stickforge}
+      - AURORA_RDS_USER=${AURORA_RDS_USER:-postgres}
+      - AURORA_RDS_PASSWORD=${AURORA_RDS_PASSWORD:-}
+      - AURORA_RDS_SSL=${AURORA_RDS_SSL:-prefer}
+      - AURORA_RDS_REGION=${AURORA_RDS_REGION:-us-east-1}
+      - AURORA_RDS_TOKEN=${AURORA_RDS_TOKEN:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+    volumes:
+      - ./data/projects:/var/www/html/data/projects

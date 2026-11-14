@@ -1,0 +1,22 @@
+{
+  "name": "stickforge-studio",
+  "version": "5.0.0",
+  "description": "StickForge 2D - Complete Modular AI Stick-Story & Motion Studio",
+  "main": "index.html",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.js",
+    "start": "npx serve dist -l 8080",
+    "test": "node --check assets/js/app.js && node --check assets/js/components.js && node --check assets/js/renderer-2d.js && node --check assets/js/services-ai.js && node --check assets/js/store.js"
+  },
+  "keywords": [
+    "stickforge",
+    "gemini",
+    "ai-animation",
+    "stick-figure",
+    "aws-amplify",
+    "amplifyapp"
+  ],
+  "author": "StickForge Team",
+  "license": "MIT"
+}

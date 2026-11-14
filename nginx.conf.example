@@ -1,0 +1,57 @@
+# =====================================================================
+# StickForge 2D - Nginx Server Block Configuration Example
+# Place inside /etc/nginx/sites-available/stickforge and symlink to sites-enabled
+# =====================================================================
+
+server {
+    listen 80;
+    server_name your-stickforge-domain.com;
+    root /var/www/stickforge;
+    index index.php index.html;
+
+    charset utf-8;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Client Request Body Size (for large project bundles or audio)
+    client_max_body_size 32M;
+
+    # Static Assets Caching
+    location /assets/ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        try_files $uri =404;
+    }
+
+    # Pass PHP scripts to FastCGI server (PHP-FPM)
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock; # Adjust for your PHP version
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_index index.php;
+        fastcgi_read_timeout 120s;
+    }
+
+    # Block access to hidden files (.env, .git)
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Block direct script execution in project data directory
+    location ^~ /data/ {
+        location ~ \.(php|phtml|sh|py)$ {
+            deny all;
+        }
+    }
+
+    # Default fallback
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+}
