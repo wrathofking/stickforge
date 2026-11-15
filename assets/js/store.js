@@ -300,6 +300,7 @@
       availableModels: [], // Dynamically populated when API key is provided
       isLoadingModels: false,
       imgProvider: "google_flow",
+      imgModel: "auto",
       imgKey: "",
       defaultGoogleFlowBg: true,
       ttsProvider: "gemini_31_tts",
@@ -386,6 +387,7 @@
           if (parsed.llmKey) this.api.llmKey = parsed.llmKey;
           if (parsed.llmModel) this.api.llmModel = parsed.llmModel;
           if (parsed.imgKey) this.api.imgKey = parsed.imgKey;
+          if (parsed.imgModel) this.api.imgModel = parsed.imgModel;
           if (parsed.imgProvider) this.api.imgProvider = parsed.imgProvider;
           if (parsed.ttsKey) this.api.ttsKey = parsed.ttsKey;
           if (parsed.ttsProvider) this.api.ttsProvider = parsed.ttsProvider;
@@ -399,6 +401,7 @@
           llmKey: this.api.llmKey,
           llmModel: this.api.llmModel,
           imgKey: this.api.imgKey,
+          imgModel: this.api.imgModel || "auto",
           imgProvider: this.api.imgProvider,
           ttsKey: this.api.ttsKey,
           ttsProvider: this.api.ttsProvider,

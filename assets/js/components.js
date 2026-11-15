@@ -923,6 +923,14 @@
         window.StickForgeBus.on("char:selected", () => this.syncForm());
         window.StickForgeBus.on("gallery:updated", () => this.render());
         window.StickForgeBus.on("motions:updated", () => this.render());
+        window.StickForgeBus.on("model:changed", () => {
+          const badge = this.querySelector("#btnInspFlowModelBadge");
+          if (badge) badge.textContent = window.StickForgeStore.api.imgModel || "auto";
+        });
+        window.StickForgeBus.on("api:saved", () => {
+          const badge = this.querySelector("#btnInspFlowModelBadge");
+          if (badge) badge.textContent = window.StickForgeStore.api.imgModel || "auto";
+        });
       }
 
       render() {
@@ -960,11 +968,19 @@
 
             <!-- Google Flow 2D BG Generator Box -->
             <div class="bg-studio-bg/90 border border-indigo-500/40 rounded-lg p-2 space-y-1.5">
-              <label class="flex items-center justify-between text-[10px] text-slate-300 cursor-pointer pb-1 border-b border-studio-border">
-                <span>Default to Google Flow for New Shots</span>
-                <input id="inspDefaultFlowChk" type="checkbox" ${store.api.defaultGoogleFlowBg ? "checked" : ""} class="accent-indigo-500 rounded" />
-              </label>
-              <input id="inspFlowPrompt" type="text" placeholder="Describe custom 2D scene (e.g. Cyberpunk rooftop, Hospital ER)..." class="w-full bg-studio-panel border border-studio-border rounded px-2 py-1 text-xs text-white" />
+              <div class="flex items-center justify-between text-[10px] text-slate-300 pb-1 border-b border-studio-border">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="inspDefaultFlowChk" type="checkbox" ${store.api.defaultGoogleFlowBg ? "checked" : ""} class="accent-indigo-500 rounded" />
+                  <span>Auto Flow BG</span>
+                </label>
+                <div class="flex items-center gap-1">
+                  <span class="text-slate-400">Model:</span>
+                  <button id="btnInspFlowModelBadge" type="button" class="font-mono text-[9px] text-indigo-300 bg-indigo-950/70 border border-indigo-500/40 px-1.5 py-0.5 rounded hover:border-indigo-400 transition" title="Click to choose Google Flow model in API settings">
+                    ${store.api.imgModel || "auto"}
+                  </button>
+                </div>
+              </div>
+              <input id="inspFlowPrompt" type="text" placeholder="Describe cartoon 2D scene (e.g. Cyberpunk rooftop, Hospital ER)..." class="w-full bg-studio-panel border border-studio-border rounded px-2 py-1 text-xs text-white" />
               <div class="grid grid-cols-2 gap-1">
                 <button id="btnGenFlowBg" type="button" class="py-1.5 px-2 rounded bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[11px] font-bold shadow">
                   🌊 Gen Google Flow BG
@@ -1113,6 +1129,9 @@
         this.querySelector("#inspCamSelect").addEventListener("change", (e) => {
           store.getCurrentShot().camera = e.target.value;
         });
+        this.querySelector("#btnInspFlowModelBadge")?.addEventListener("click", () => {
+          window.StickForgeBus.emit("modal:api:open");
+        });
         this.querySelector("#inspDefaultFlowChk").addEventListener("change", (e) => {
           store.api.defaultGoogleFlowBg = e.target.checked;
         });
@@ -1216,6 +1235,8 @@
         const store = window.StickForgeStore;
         const shot = store.getCurrentShot();
         if (!shot) return;
+        const flowBadge = this.querySelector("#btnInspFlowModelBadge");
+        if (flowBadge) flowBadge.textContent = store.api.imgModel || "auto";
         this.querySelector("#inspBgSelect").value = shot.setting;
         this.querySelector("#inspCamSelect").value = shot.camera;
         this.querySelector("#inspShowNamesToggle").checked = store.showCharacterNames;
@@ -1894,8 +1915,12 @@
         this.render();
         window.StickForgeBus.on("modal:api:open", async () => {
           this.querySelector("#apiModalWrap").classList.remove("hidden");
-          this.checkRdsStatus();
           const store = window.StickForgeStore;
+          const imgModelSel = this.querySelector("#inpImgModel");
+          if (imgModelSel) imgModelSel.value = store.api.imgModel || "auto";
+          const imgProvSel = this.querySelector("#inpImgProvider");
+          if (imgProvSel) imgProvSel.value = store.api.imgProvider || "google_flow";
+          this.checkRdsStatus();
           if (store.api.availableModels && store.api.availableModels.length > 0) {
             this.populateModelDropdown(store.api.availableModels);
           } else {
@@ -2058,14 +2083,43 @@
                     <input id="inpLlmKey" type="password" value="${store.api.llmKey}" placeholder="Paste Gemini API key (AIza...)..." class="w-full bg-studio-bg border border-studio-border rounded px-2.5 py-1.5 text-white font-mono" />
                   </div>
                 </div>
-                <div class="bg-studio-card border border-studio-border rounded-lg p-3 space-y-1.5">
-                  <label class="block text-sky-300 font-bold">2. 2D Background Engine</label>
-                  <select id="inpImgProvider" class="w-full bg-studio-bg border border-studio-border rounded px-2 py-1 text-white">
-                    <option value="google_flow">Google Flow 2D Background (Gemini 3.1 Flash Image &amp; Imagen 4)</option>
-                    <option value="openai_dalle">OpenAI DALL·E 3 API (Proxied via Server)</option>
-                    <option value="built_in_painter">Built-in 2D Cartoon Painter Only (Instant Offline)</option>
-                  </select>
-                  <input id="inpImgKey" type="password" value="${store.api.imgKey}" placeholder="Optional separate Image API key..." class="w-full bg-studio-bg border border-studio-border rounded px-2.5 py-1 text-white font-mono" />
+                <div class="bg-studio-card border border-studio-border rounded-lg p-3 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-sky-300 font-bold">2. Google Flow 2D Background Model</label>
+                    <span class="text-[10px] text-indigo-300">Stickman Cartoon Engine</span>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label class="block text-[11px] text-slate-300 font-semibold mb-1">Provider</label>
+                      <select id="inpImgProvider" class="w-full bg-studio-bg border border-studio-border rounded px-2 py-1.5 text-white text-xs">
+                        <option value="google_flow" ${store.api.imgProvider === "google_flow" ? "selected" : ""}>Google Flow 2D Background</option>
+                        <option value="openai_dalle" ${store.api.imgProvider === "openai_dalle" ? "selected" : ""}>OpenAI DALL·E 3 API (Proxied)</option>
+                        <option value="built_in_painter" ${store.api.imgProvider === "built_in_painter" ? "selected" : ""}>Built-in 2D Cartoon Painter (Offline)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-[11px] text-indigo-300 font-semibold mb-1">Google Flow / Nano Banana Model</label>
+                      <select id="inpImgModel" class="w-full bg-studio-bg border border-studio-border rounded px-2 py-1.5 text-white font-mono text-xs">
+                        <option value="auto" ${(store.api.imgModel || "auto") === "auto" ? "selected" : ""}>✨ Auto Cascade (Nano Banana 2.1 &rarr; Gemini 3.1 &rarr; Imagen 4 &rarr; Flux)</option>
+                        <optgroup label="🍌 Google Nano Banana Models">
+                          <option value="gemini-nano-banana-2.1" ${store.api.imgModel === "gemini-nano-banana-2.1" ? "selected" : ""}>gemini-nano-banana-2.1 (Nano Banana 2.1 - Primary Workhorse)</option>
+                          <option value="gemini-3-pro-image" ${store.api.imgModel === "gemini-3-pro-image" ? "selected" : ""}>gemini-3-pro-image (Nano Banana Pro - Thinking &amp; 4K Art)</option>
+                          <option value="gemini-3.1-flash-image" ${store.api.imgModel === "gemini-3.1-flash-image" ? "selected" : ""}>gemini-3.1-flash-image (Nano Banana 2 - Fast Image)</option>
+                          <option value="gemini-3.1-flash-lite-image" ${store.api.imgModel === "gemini-3.1-flash-lite-image" ? "selected" : ""}>gemini-3.1-flash-lite-image (Nano Banana 2 Lite - Ultra-fast)</option>
+                          <option value="gemini-2.5-flash-image-preview" ${store.api.imgModel === "gemini-2.5-flash-image-preview" ? "selected" : ""}>gemini-2.5-flash-image-preview (Nano Banana Preview)</option>
+                        </optgroup>
+                        <optgroup label="🎨 Classic &amp; Alternative Engines">
+                          <option value="imagen-4.0-generate-001" ${store.api.imgModel === "imagen-4.0-generate-001" ? "selected" : ""}>imagen-4.0-generate-001 (Google Imagen 4 High-Res)</option>
+                          <option value="imagen-4.0-fast-generate-001" ${store.api.imgModel === "imagen-4.0-fast-generate-001" ? "selected" : ""}>imagen-4.0-fast-generate-001 (Google Imagen 4 Fast)</option>
+                          <option value="flux-cartoon-plate" ${store.api.imgModel === "flux-cartoon-plate" ? "selected" : ""}>flux-cartoon-plate (Neural 2D Cartoon Engine)</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="pt-0.5">
+                    <label class="block text-[10px] text-slate-400 mb-0.5">Image API Key (Optional — uses Gemini Key above if blank)</label>
+                    <input id="inpImgKey" type="password" value="${store.api.imgKey}" placeholder="Optional separate Image API key..." class="w-full bg-studio-bg border border-studio-border rounded px-2.5 py-1 text-white font-mono text-xs" />
+                  </div>
                 </div>
                 <div class="bg-studio-card border border-studio-border rounded-lg p-3 space-y-1.5">
                   <label class="block text-emerald-300 font-bold">3. Voiceover Provider (TTS)</label>
@@ -2179,6 +2233,7 @@
           store.api.llmModel = this.querySelector("#inpLlmModel")?.value || "gemini-2.5-flash";
           store.api.llmKey = this.querySelector("#inpLlmKey").value.trim();
           store.api.imgProvider = this.querySelector("#inpImgProvider").value;
+          store.api.imgModel = this.querySelector("#inpImgModel")?.value || "auto";
           store.api.imgKey = this.querySelector("#inpImgKey").value.trim();
           store.api.ttsProvider = this.querySelector("#inpTtsProvider").value;
           store.api.ttsKey = this.querySelector("#inpTtsKey").value.trim();
@@ -2200,7 +2255,8 @@
 
           this.querySelector("#apiModalWrap").classList.add("hidden");
           window.StickForgeBus.emit("model:changed", { model: store.api.llmModel });
-          window.StickForgeBus.emit("status:toast", { message: `Saved API settings with model: ${store.api.llmModel}` });
+          window.StickForgeBus.emit("api:saved", { imgModel: store.api.imgModel });
+          window.StickForgeBus.emit("status:toast", { message: `Saved API settings! LLM: ${store.api.llmModel} | Flow: ${store.api.imgModel}` });
         });
 
         // Initialize dropdown

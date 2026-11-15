@@ -508,7 +508,7 @@ Return ONLY valid JSON:
   // ---------------------------------------------------------------------------
   buildGoogleFlowPrompt(shot, customDesc) {
     const store = window.StickForgeStore;
-    const desc = (customDesc || shot?.bgPrompt || shot?.narration || shot?.setting || "Anime stick studio").replace(/\[[^\]]+\]/g, "").trim();
+    const desc = (customDesc || shot?.bgPrompt || shot?.narration || shot?.setting || "Stickman cartoon environment").replace(/\[[^\]]+\]/g, "").trim();
     const camMap = {
       zoom_in: "Slow cinematic push-in camera movement",
       zoom_out: "Slow pull-back reveal camera movement",
@@ -517,12 +517,12 @@ Return ONLY valid JSON:
       shake: "Handheld dramatic tension camera shake",
       static: "Locked tripod wide establishing shot"
     };
-    return `[Google Flow Scenebuilder | Ingredients: Vibrant 2D flat-shaded cartoon animation background illustration, clean bold ink linework, rich atmospheric lighting, warm depth of field, unobstructed foreground floor in bottom 20% for 2D stick-figure actors, text-free, no characters in background] Scene: ${desc}. Aspect Ratio: ${store.aspectRatio || "16:9"}. Camera Control: ${camMap[shot?.camera] || camMap.zoom_in}.`;
+    return `[Google Flow Scenebuilder | Style: Vibrant 2D flat cartoon illustration, stick-figure animation background plate, clean bold ink linework, flat cel-shading, vibrant minimalist color palette, unobstructed flat floor in bottom 25% for 2D stickman characters to stand and move on, open negative space in center stage, atmospheric lighting, empty scene with zero people, no humans, text-free] Scene: ${desc}. Aspect Ratio: ${store.aspectRatio || "16:9"}. Camera Control: ${camMap[shot?.camera] || camMap.zoom_in}.`;
   },
 
   buildCleanVisualPrompt(shot, customDesc) {
-    const desc = (customDesc || shot?.bgPrompt || shot?.narration || shot?.setting || "Anime stick story environment").replace(/\[[^\]]+\]/g, "").trim();
-    return `Vibrant 2D flat-shaded cartoon animation background illustration of ${desc}, clean bold ink linework, anime stick-figure animation background art, rich atmospheric lighting, unobstructed floor, text-free, no characters in background, 16:9 widescreen, cinematic animation art`;
+    const desc = (customDesc || shot?.bgPrompt || shot?.narration || shot?.setting || "Stickman cartoon environment").replace(/\[[^\]]+\]/g, "").trim();
+    return `Vibrant 2D flat cartoon illustration of ${desc}. Authentic stick-figure animation background art style, clean bold ink outlines, flat cel-shading, vibrant minimalist color palette, unobstructed flat floor in bottom 25% of the frame for 2D stickman characters to stand and move on, open negative space in center stage, high contrast against thin stick figures, atmospheric lighting, empty scene with zero people, no humans, no photorealistic faces, text-free, clean 2D animation art plate, 16:9 widescreen.`;
   },
 
   async generateFlowBackground(shot, customPrompt) {
@@ -537,12 +537,13 @@ Return ONLY valid JSON:
     shot.bgPrompt = desc;
     store.isGeneratingBg = true;
     window.StickForgeBus.emit("bg:generating", { status: true });
-    window.StickForgeBus.emit("status:toast", { message: `🌊 Generating 2D background for "${desc.slice(0, 36)}"...` });
+    window.StickForgeBus.emit("status:toast", { message: `🌊 Generating 2D cartoon background for "${desc.slice(0, 36)}"...` });
 
     const cleanPrompt = this.buildCleanVisualPrompt(shot, desc);
     const flowPrompt = this.buildGoogleFlowPrompt(shot, desc);
     const apiKey = store.api.imgKey || store.api.llmKey || "";
     const imgProvider = store.api.imgProvider || "google_flow";
+    const modelPreference = store.api.imgModel || "auto";
     let attached = false;
 
     // 1. Try PHP Backend Gateway first (if backend is active)
@@ -552,6 +553,7 @@ Return ONLY valid JSON:
           "images.php",
           {
             provider: imgProvider,
+            model: modelPreference,
             prompt: cleanPrompt,
             flowPrompt: flowPrompt,
             aspectRatio: store.aspectRatio || "16:9",
@@ -567,7 +569,7 @@ Return ONLY valid JSON:
             store.isGeneratingBg = false;
             window.StickForgeBus.emit("bg:generating", { status: false });
             window.StickForgeBus.emit("status:toast", {
-              message: `🌊 Attached 2D background (${backendResult.data?.model || "AI Flow"})!`
+              message: `🌊 Attached 2D background (${backendResult.data?.model || modelPreference})!`
             });
             return true;
           }
@@ -579,30 +581,140 @@ Return ONLY valid JSON:
 
     // 2. Client-Side Direct Generation (Used on AWS Amplify / BYOK)
     if (!attached && imgProvider !== "built_in_painter") {
-      // 2A. If Gemini API key is provided, try modern Gemini & Imagen 4 image models
-      if (apiKey) {
-        // Tier 1: Gemini 3.1 Flash Image & 2.5 Flash Image Preview
-        const geminiModels = ["gemini-3.1-flash-image", "gemini-2.5-flash-image-preview", "gemini-3.1-flash-lite-image"];
-        for (const gm of geminiModels) {
-          try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent?key=${encodeURIComponent(apiKey)}`;
-            const res = await this.fetchWithBackoff(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: cleanPrompt }] }],
-                generationConfig: { responseModalities: ["image", "text"] }
-              })
-            }, 1);
+      // 2A. If user specifically selected Neural 2D Cartoon Engine (Flux), execute it first
+      if (modelPreference === "flux-cartoon-plate") {
+        try {
+          const w = store.aspectRatio === "9:16" ? 720 : 1280;
+          const h = store.aspectRatio === "9:16" ? 1280 : 720;
+          const seed = Math.floor(Math.random() * 999999);
+          const neuralUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=${w}&height=${h}&model=flux&nologo=true&seed=${seed}`;
+          attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, neuralUrl);
+          if (attached) {
+            store.isGeneratingBg = false;
+            window.StickForgeBus.emit("bg:generating", { status: false });
+            window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D cartoon background (Flux Cartoon Engine)!` });
+            return true;
+          }
+        } catch (err) {
+          console.warn("[StickForgeAI] Flux cartoon generator error:", err);
+        }
+      }
 
-            if (res && res.ok) {
-              const data = await res.json();
-              const parts = data.candidates?.[0]?.content?.parts || [];
-              for (const p of parts) {
-                if (p.inlineData?.data) {
-                  const mime = p.inlineData.mimeType || "image/png";
-                  attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:${mime};base64,${p.inlineData.data}`);
-                  if (attached) {
+      // 2B. If Gemini API key is provided, try modern Gemini & Imagen 4 image models
+      if (apiKey) {
+        const wantsImagenFirst = modelPreference.startsWith("imagen-");
+
+        // Helper: Try Imagen 4 Predict API
+        const tryImagen = async () => {
+          let imagenModels = ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"];
+          if (modelPreference.startsWith("imagen-")) {
+            imagenModels = [modelPreference, ...imagenModels.filter(m => m !== modelPreference)];
+          }
+          for (const im of imagenModels) {
+            try {
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/${im}:predict?key=${encodeURIComponent(apiKey)}`;
+              const res = await this.fetchWithBackoff(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  instances: [{ prompt: cleanPrompt }],
+                  parameters: {
+                    sampleCount: 1,
+                    aspectRatio: store.aspectRatio === "9:16" ? "9:16" : "16:9",
+                    negativePrompt: "photorealistic, photo, 3D CGI, realistic humans, noisy textures, cluttered, text, watermark"
+                  }
+                })
+              }, 1);
+
+              if (res && res.ok) {
+                const data = await res.json();
+                const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+                const mime = data.predictions?.[0]?.mimeType || "image/png";
+                if (b64) {
+                  const att = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:${mime};base64,${b64}`);
+                  if (att) {
+                    store.isGeneratingBg = false;
+                    window.StickForgeBus.emit("bg:generating", { status: false });
+                    window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background (${im})!` });
+                    return true;
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(`[StickForgeAI] Direct ${im} failed:`, e);
+            }
+          }
+          return false;
+        };
+
+        // Helper: Try Gemini Flash & Nano Banana Image models
+        const tryGemini = async () => {
+          const allNanoBananaModels = [
+            "gemini-nano-banana-2.1",
+            "gemini-3-pro-image",
+            "gemini-3.1-flash-image",
+            "gemini-3.1-flash-lite-image",
+            "gemini-2.5-flash-image-preview"
+          ];
+          let geminiModels = [...allNanoBananaModels];
+          if (modelPreference.startsWith("gemini-") || modelPreference.includes("banana")) {
+            geminiModels = [modelPreference, ...allNanoBananaModels.filter(m => m !== modelPreference)];
+          }
+          for (const gm of geminiModels) {
+            // Attempt A: generateContent with responseModalities image
+            try {
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent?key=${encodeURIComponent(apiKey)}`;
+              const res = await this.fetchWithBackoff(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: cleanPrompt }] }],
+                  generationConfig: { responseModalities: ["image", "text"] }
+                })
+              }, 1);
+
+              if (res && res.ok) {
+                const data = await res.json();
+                const parts = data.candidates?.[0]?.content?.parts || [];
+                for (const p of parts) {
+                  if (p.inlineData?.data) {
+                    const mime = p.inlineData.mimeType || "image/png";
+                    const att = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:${mime};base64,${p.inlineData.data}`);
+                    if (att) {
+                      store.isGeneratingBg = false;
+                      window.StickForgeBus.emit("bg:generating", { status: false });
+                      window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background (${gm})!` });
+                      return true;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(`[StickForgeAI] Direct generateContent ${gm} failed:`, e);
+            }
+
+            // Attempt B: Interactions API (Primary endpoint for Nano Banana 2.1 & Pro)
+            try {
+              const interactUrl = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${encodeURIComponent(apiKey)}`;
+              const res = await this.fetchWithBackoff(interactUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "x-goog-api-key": apiKey,
+                  "Api-Revision": "2026-05-20"
+                },
+                body: JSON.stringify({
+                  model: gm,
+                  input: [{ type: "text", text: cleanPrompt }]
+                })
+              }, 1);
+
+              if (res && res.ok) {
+                const data = await res.json();
+                const b64 = data.output_image?.data || data.outputs?.[0]?.data;
+                if (b64) {
+                  const att = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:image/png;base64,${b64}`);
+                  if (att) {
                     store.isGeneratingBg = false;
                     window.StickForgeBus.emit("bg:generating", { status: false });
                     window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background (${gm})!` });
@@ -610,47 +722,23 @@ Return ONLY valid JSON:
                   }
                 }
               }
+            } catch (e) {
+              console.warn(`[StickForgeAI] Direct interactions ${gm} failed:`, e);
             }
-          } catch (e) {
-            console.warn(`[StickForgeAI] Direct ${gm} failed:`, e);
           }
-        }
+          return false;
+        };
 
-        // Tier 2: Imagen 4 Predict API
-        const imagenModels = ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"];
-        for (const im of imagenModels) {
-          try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${im}:predict?key=${encodeURIComponent(apiKey)}`;
-            const res = await this.fetchWithBackoff(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                instances: [{ prompt: cleanPrompt }],
-                parameters: { sampleCount: 1, aspectRatio: store.aspectRatio === "9:16" ? "9:16" : "16:9" }
-              })
-            }, 1);
-
-            if (res && res.ok) {
-              const data = await res.json();
-              const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-              const mime = data.predictions?.[0]?.mimeType || "image/png";
-              if (b64) {
-                attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:${mime};base64,${b64}`);
-                if (attached) {
-                  store.isGeneratingBg = false;
-                  window.StickForgeBus.emit("bg:generating", { status: false });
-                  window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background (${im})!` });
-                  return true;
-                }
-              }
-            }
-          } catch (e) {
-            console.warn(`[StickForgeAI] Direct ${im} failed:`, e);
-          }
+        if (wantsImagenFirst) {
+          if (await tryImagen()) return true;
+          if (await tryGemini()) return true;
+        } else {
+          if (await tryGemini()) return true;
+          if (await tryImagen()) return true;
         }
       }
 
-      // 2B. Neural 2D Cartoon Engine (Guaranteed Real 2D Cartoon Artwork via Flux)
+      // 2C. Fallback to Neural 2D Cartoon Engine (Flux)
       try {
         const w = store.aspectRatio === "9:16" ? 720 : 1280;
         const h = store.aspectRatio === "9:16" ? 1280 : 720;

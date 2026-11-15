@@ -291,18 +291,19 @@ window.StickForgeRenderer = {
           }
           ctx.drawImage(baseImg, 0, 0, 960, 540);
           ctx.restore();
+        } else {
+          // Clean 2D cartoon backdrop with flat floor plane for stick actors
+          ctx.fillStyle = "#1e293b";
+          ctx.fillRect(0, 0, 960, 410);
+          ctx.fillStyle = "#0f172a";
+          ctx.fillRect(0, 410, 960, 130);
+          ctx.strokeStyle = "#38bdf8";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(0, 410);
+          ctx.lineTo(960, 410);
+          ctx.stroke();
         }
-        ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
-        ctx.strokeStyle = "#38bdf8";
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.roundRect(220, 38, 520, 54, 12);
-        ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fde047";
-        ctx.font = '800 20px "Inter", sans-serif';
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText((promptText || "CUSTOM 2D SCENE").toUpperCase().slice(0, 36), 480, 65);
         await this.attachDataUrlToShot(shot, c.toDataURL("image/jpeg", 0.92));
       },
 
