@@ -2061,7 +2061,7 @@
                 <div class="bg-studio-card border border-studio-border rounded-lg p-3 space-y-1.5">
                   <label class="block text-sky-300 font-bold">2. 2D Background Engine</label>
                   <select id="inpImgProvider" class="w-full bg-studio-bg border border-studio-border rounded px-2 py-1 text-white">
-                    <option value="google_flow">Google Flow / Imagen 3 (imagen-3.0-generate-002)</option>
+                    <option value="google_flow">Google Flow 2D Background (Gemini 3.1 Flash Image &amp; Imagen 4)</option>
                     <option value="openai_dalle">OpenAI DALL·E 3 API (Proxied via Server)</option>
                     <option value="built_in_painter">Built-in 2D Cartoon Painter Only (Instant Offline)</option>
                   </select>

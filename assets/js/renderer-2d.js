@@ -219,16 +219,51 @@ window.StickForgeRenderer = {
         });
       },
 
-      attachDataUrlToShot(shot, dataUrl) {
+      attachDataUrlToShot(shot, sourceUrl) {
         return new Promise((resolve) => {
+          if (!shot || !sourceUrl) return resolve(false);
+          const store = window.StickForgeStore;
           const img = new Image();
+          img.crossOrigin = "anonymous";
+
+          const timeout = setTimeout(() => {
+            console.warn("[StickForgeRenderer] Image load timed out:", sourceUrl);
+            resolve(false);
+          }, 15000);
+
           img.onload = () => {
-            window.StickForgeStore.bgImageCache[shot.id] = img;
+            clearTimeout(timeout);
+            store.bgImageCache[shot.id] = img;
             shot.setting = "custom_image";
+
+            // If it's an external web URL, convert to Base64 dataURL for offline persistence
+            if (sourceUrl.startsWith("http://") || sourceUrl.startsWith("https://")) {
+              try {
+                const c = document.createElement("canvas");
+                c.width = img.naturalWidth || 1280;
+                c.height = img.naturalHeight || 720;
+                const ctx = c.getContext("2d");
+                ctx.drawImage(img, 0, 0);
+                shot.bgImage = c.toDataURL("image/jpeg", 0.90);
+              } catch (e) {
+                shot.bgImage = sourceUrl;
+              }
+            } else {
+              shot.bgImage = sourceUrl;
+            }
+
             window.StickForgeBus.emit("shots:updated");
-            resolve();
+            window.StickForgeBus.emit("timeline:seek", { time: store.currentTime });
+            resolve(true);
           };
-          img.src = dataUrl;
+
+          img.onerror = (err) => {
+            clearTimeout(timeout);
+            console.warn("[StickForgeRenderer] Failed to load background image:", err);
+            resolve(false);
+          };
+
+          img.src = sourceUrl;
         });
       },
 
@@ -273,13 +308,24 @@ window.StickForgeRenderer = {
 
       drawRichEnvironment(ctx, W, H, setting, styleMode, tSec, shot) {
         const store = window.StickForgeStore;
-        if (setting === "custom_image" && shot && store.bgImageCache[shot.id]?.complete) {
-          ctx.save();
-          if (styleMode === "neon") ctx.filter = "brightness(0.55) contrast(1.35) hue-rotate(175deg)";
-          else if (styleMode === "sketch") ctx.filter = "sepia(0.45) brightness(1.05)";
-          ctx.drawImage(store.bgImageCache[shot.id], 0, 0, W, H);
-          ctx.restore();
-          return;
+        // 1. Check for custom AI-generated background (Google Flow / Imagen)
+        if (shot && (setting === "custom_image" || shot.bgImage)) {
+          let bgImg = store.bgImageCache[shot.id];
+          if (!bgImg && shot.bgImage) {
+            bgImg = new Image();
+            bgImg.crossOrigin = "anonymous";
+            bgImg.src = shot.bgImage;
+            store.bgImageCache[shot.id] = bgImg;
+          }
+
+          if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+            ctx.save();
+            if (styleMode === "neon") ctx.filter = "brightness(0.55) contrast(1.35) hue-rotate(175deg)";
+            else if (styleMode === "sketch") ctx.filter = "sepia(0.45) brightness(1.05)";
+            ctx.drawImage(bgImg, 0, 0, W, H);
+            ctx.restore();
+            return;
+          }
         }
         const plate = store.presetBgImages[setting] || store.presetBgImages["classroom"];
         if (plate && plate.complete) {

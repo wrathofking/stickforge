@@ -508,7 +508,7 @@ Return ONLY valid JSON:
   // ---------------------------------------------------------------------------
   buildGoogleFlowPrompt(shot, customDesc) {
     const store = window.StickForgeStore;
-    const desc = (customDesc || shot.bgPrompt || shot.narration || shot.setting).replace(/\[[^\]]+\]/g, "").trim();
+    const desc = (customDesc || shot?.bgPrompt || shot?.narration || shot?.setting || "Anime stick studio").replace(/\[[^\]]+\]/g, "").trim();
     const camMap = {
       zoom_in: "Slow cinematic push-in camera movement",
       zoom_out: "Slow pull-back reveal camera movement",
@@ -517,69 +517,162 @@ Return ONLY valid JSON:
       shake: "Handheld dramatic tension camera shake",
       static: "Locked tripod wide establishing shot"
     };
-    return `[Google Flow Scenebuilder | Ingredients: Vibrant 2D flat-shaded cartoon animation background illustration, clean bold ink linework, rich atmospheric lighting, warm depth of field, unobstructed foreground floor in bottom 20% for 2D stick-figure actors, text-free, no characters in background] Scene: ${desc}. Aspect Ratio: ${store.aspectRatio}. Camera Control: ${camMap[shot.camera] || camMap.zoom_in}.`;
+    return `[Google Flow Scenebuilder | Ingredients: Vibrant 2D flat-shaded cartoon animation background illustration, clean bold ink linework, rich atmospheric lighting, warm depth of field, unobstructed foreground floor in bottom 20% for 2D stick-figure actors, text-free, no characters in background] Scene: ${desc}. Aspect Ratio: ${store.aspectRatio || "16:9"}. Camera Control: ${camMap[shot?.camera] || camMap.zoom_in}.`;
+  },
+
+  buildCleanVisualPrompt(shot, customDesc) {
+    const desc = (customDesc || shot?.bgPrompt || shot?.narration || shot?.setting || "Anime stick story environment").replace(/\[[^\]]+\]/g, "").trim();
+    return `Vibrant 2D flat-shaded cartoon animation background illustration of ${desc}, clean bold ink linework, anime stick-figure animation background art, rich atmospheric lighting, unobstructed floor, text-free, no characters in background, 16:9 widescreen, cinematic animation art`;
   },
 
   async generateFlowBackground(shot, customPrompt) {
     const store = window.StickForgeStore;
-    const desc = (customPrompt || shot.bgPrompt || shot.narration || shot.setting).replace(/\[[^\]]+\]/g, "").trim();
+    if (!shot) shot = store.getCurrentShot();
+    if (!shot) return false;
+
+    let desc = (customPrompt || shot.bgPrompt || shot.narration || shot.setting || "").replace(/\[[^\]]+\]/g, "").trim();
+    if (!desc || desc === "custom_image") {
+      desc = shot.narration ? shot.narration.replace(/\[[^\]]+\]/g, "").trim() : "Futuristic cyber anime city street with neon signs";
+    }
     shot.bgPrompt = desc;
     store.isGeneratingBg = true;
     window.StickForgeBus.emit("bg:generating", { status: true });
-    window.StickForgeBus.emit("status:toast", { message: `🌊 Generating 2D background for "${desc.slice(0, 38)}"...` });
+    window.StickForgeBus.emit("status:toast", { message: `🌊 Generating 2D background for "${desc.slice(0, 36)}"...` });
 
+    const cleanPrompt = this.buildCleanVisualPrompt(shot, desc);
     const flowPrompt = this.buildGoogleFlowPrompt(shot, desc);
     const apiKey = store.api.imgKey || store.api.llmKey || "";
     const imgProvider = store.api.imgProvider || "google_flow";
+    let attached = false;
 
-    // 1. Try PHP Backend Gateway (CORS safe)
-    if (imgProvider !== "built_in_painter") {
-      const backendResult = await this.requestBackendOrDirect(
-        "images.php",
-        {
-          provider: imgProvider,
-          prompt: flowPrompt,
-          aspectRatio: store.aspectRatio,
-          apiKey
-        },
-        async () => {
-          // Direct Client Fallback if Imagen / Gemini key is present
-          if (apiKey && (imgProvider === "google_flow" || imgProvider === "imagen_4")) {
-            // Imagen 3 predict
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(apiKey)}`;
+    // 1. Try PHP Backend Gateway first (if backend is active)
+    if (imgProvider !== "built_in_painter" && this.backendAvailable !== false) {
+      try {
+        const backendResult = await this.requestBackendOrDirect(
+          "images.php",
+          {
+            provider: imgProvider,
+            prompt: cleanPrompt,
+            flowPrompt: flowPrompt,
+            aspectRatio: store.aspectRatio || "16:9",
+            apiKey
+          },
+          null
+        );
+
+        if (backendResult.success && (backendResult.data?.dataUrl || backendResult.data?.imageUrl)) {
+          const urlToAttach = backendResult.data.dataUrl || backendResult.data.imageUrl;
+          attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, urlToAttach);
+          if (attached) {
+            store.isGeneratingBg = false;
+            window.StickForgeBus.emit("bg:generating", { status: false });
+            window.StickForgeBus.emit("status:toast", {
+              message: `🌊 Attached 2D background (${backendResult.data?.model || "AI Flow"})!`
+            });
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn("[StickForgeAI] Backend image proxy error:", err);
+      }
+    }
+
+    // 2. Client-Side Direct Generation (Used on AWS Amplify / BYOK)
+    if (!attached && imgProvider !== "built_in_painter") {
+      // 2A. If Gemini API key is provided, try modern Gemini & Imagen 4 image models
+      if (apiKey) {
+        // Tier 1: Gemini 3.1 Flash Image & 2.5 Flash Image Preview
+        const geminiModels = ["gemini-3.1-flash-image", "gemini-2.5-flash-image-preview", "gemini-3.1-flash-lite-image"];
+        for (const gm of geminiModels) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent?key=${encodeURIComponent(apiKey)}`;
             const res = await this.fetchWithBackoff(url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                instances: [{ prompt: flowPrompt }],
+                contents: [{ parts: [{ text: cleanPrompt }] }],
+                generationConfig: { responseModalities: ["image", "text"] }
+              })
+            }, 1);
+
+            if (res && res.ok) {
+              const data = await res.json();
+              const parts = data.candidates?.[0]?.content?.parts || [];
+              for (const p of parts) {
+                if (p.inlineData?.data) {
+                  const mime = p.inlineData.mimeType || "image/png";
+                  attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:${mime};base64,${p.inlineData.data}`);
+                  if (attached) {
+                    store.isGeneratingBg = false;
+                    window.StickForgeBus.emit("bg:generating", { status: false });
+                    window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background (${gm})!` });
+                    return true;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`[StickForgeAI] Direct ${gm} failed:`, e);
+          }
+        }
+
+        // Tier 2: Imagen 4 Predict API
+        const imagenModels = ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"];
+        for (const im of imagenModels) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${im}:predict?key=${encodeURIComponent(apiKey)}`;
+            const res = await this.fetchWithBackoff(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                instances: [{ prompt: cleanPrompt }],
                 parameters: { sampleCount: 1, aspectRatio: store.aspectRatio === "9:16" ? "9:16" : "16:9" }
               })
-            }, 2);
+            }, 1);
+
             if (res && res.ok) {
               const data = await res.json();
               const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-              if (b64) return { dataUrl: "data:image/png;base64," + b64 };
+              const mime = data.predictions?.[0]?.mimeType || "image/png";
+              if (b64) {
+                attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, `data:${mime};base64,${b64}`);
+                if (attached) {
+                  store.isGeneratingBg = false;
+                  window.StickForgeBus.emit("bg:generating", { status: false });
+                  window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background (${im})!` });
+                  return true;
+                }
+              }
             }
+          } catch (e) {
+            console.warn(`[StickForgeAI] Direct ${im} failed:`, e);
           }
-          return null;
         }
-      );
+      }
 
-      if (backendResult.success && (backendResult.data?.dataUrl || backendResult.data?.imageUrl)) {
-        const urlToAttach = backendResult.data.dataUrl || backendResult.data.imageUrl;
-        await window.StickForgeRenderer.attachDataUrlToShot(shot, urlToAttach);
-        store.isGeneratingBg = false;
-        window.StickForgeBus.emit("bg:generating", { status: false });
-        window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D background!` });
-        return true;
+      // 2B. Neural 2D Cartoon Engine (Guaranteed Real 2D Cartoon Artwork via Flux)
+      try {
+        const w = store.aspectRatio === "9:16" ? 720 : 1280;
+        const h = store.aspectRatio === "9:16" ? 1280 : 720;
+        const seed = Math.floor(Math.random() * 999999);
+        const neuralUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=${w}&height=${h}&model=flux&nologo=true&seed=${seed}`;
+        attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, neuralUrl);
+        if (attached) {
+          store.isGeneratingBg = false;
+          window.StickForgeBus.emit("bg:generating", { status: false });
+          window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D cartoon background (Neural 2D)!` });
+          return true;
+        }
+      } catch (err) {
+        console.warn("[StickForgeAI] Neural 2D cartoon generator error:", err);
       }
     }
 
-    // 2. Procedural 2D Cartoon Plate Fallback (Always reliable & offline)
+    // 3. Procedural 2D Cartoon Plate Fallback (Offline fallback)
     await window.StickForgeRenderer.buildRichProceduralPlateForShot(shot, desc);
     store.isGeneratingBg = false;
     window.StickForgeBus.emit("bg:generating", { status: false });
-    window.StickForgeBus.emit("status:toast", { message: `🌊 Synthesized rich 2D cartoon plate for "${desc.slice(0, 34)}"!` });
+    window.StickForgeBus.emit("status:toast", { message: `🌊 Synthesized 2D cartoon plate for "${desc.slice(0, 30)}"!` });
     return true;
   },
 
