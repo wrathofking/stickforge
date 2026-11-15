@@ -579,28 +579,8 @@ Return ONLY valid JSON:
       }
     }
 
-    // 2. Client-Side Direct Generation (Used on AWS Amplify / BYOK)
+    // 2. Client-Side Direct Generation via Google Gemini API (AWS Amplify / BYOK)
     if (!attached && imgProvider !== "built_in_painter") {
-      // 2A. If user specifically selected Neural 2D Cartoon Engine (Flux), execute it first
-      if (modelPreference === "flux-cartoon-plate") {
-        try {
-          const w = store.aspectRatio === "9:16" ? 720 : 1280;
-          const h = store.aspectRatio === "9:16" ? 1280 : 720;
-          const seed = Math.floor(Math.random() * 999999);
-          const neuralUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=${w}&height=${h}&model=flux&nologo=true&seed=${seed}`;
-          attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, neuralUrl);
-          if (attached) {
-            store.isGeneratingBg = false;
-            window.StickForgeBus.emit("bg:generating", { status: false });
-            window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D cartoon background (Flux Cartoon Engine)!` });
-            return true;
-          }
-        } catch (err) {
-          console.warn("[StickForgeAI] Flux cartoon generator error:", err);
-        }
-      }
-
-      // 2B. If Gemini API key is provided, try modern Gemini & Imagen 4 image models
       if (apiKey) {
         const wantsImagenFirst = modelPreference.startsWith("imagen-");
 
@@ -736,27 +716,14 @@ Return ONLY valid JSON:
           if (await tryGemini()) return true;
           if (await tryImagen()) return true;
         }
-      }
-
-      // 2C. Fallback to Neural 2D Cartoon Engine (Flux)
-      try {
-        const w = store.aspectRatio === "9:16" ? 720 : 1280;
-        const h = store.aspectRatio === "9:16" ? 1280 : 720;
-        const seed = Math.floor(Math.random() * 999999);
-        const neuralUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=${w}&height=${h}&model=flux&nologo=true&seed=${seed}`;
-        attached = await window.StickForgeRenderer.attachDataUrlToShot(shot, neuralUrl);
-        if (attached) {
-          store.isGeneratingBg = false;
-          window.StickForgeBus.emit("bg:generating", { status: false });
-          window.StickForgeBus.emit("status:toast", { message: `🌊 Attached 2D cartoon background (Neural 2D)!` });
-          return true;
-        }
-      } catch (err) {
-        console.warn("[StickForgeAI] Neural 2D cartoon generator error:", err);
+      } else {
+        window.StickForgeBus.emit("status:toast", {
+          message: "⚠️ Enter your Gemini API key in API Settings for direct Google AI image generation."
+        });
       }
     }
 
-    // 3. Procedural 2D Cartoon Plate Fallback (Offline fallback)
+    // 3. Procedural 2D Cartoon Plate Fallback (Zero network / Local HTML5 Canvas)
     await window.StickForgeRenderer.buildRichProceduralPlateForShot(shot, desc);
     store.isGeneratingBg = false;
     window.StickForgeBus.emit("bg:generating", { status: false });

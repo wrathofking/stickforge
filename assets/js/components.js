@@ -2100,18 +2100,17 @@
                     <div>
                       <label class="block text-[11px] text-indigo-300 font-semibold mb-1">Google Flow / Nano Banana Model</label>
                       <select id="inpImgModel" class="w-full bg-studio-bg border border-studio-border rounded px-2 py-1.5 text-white font-mono text-xs">
-                        <option value="auto" ${(store.api.imgModel || "auto") === "auto" ? "selected" : ""}>✨ Auto Cascade (Nano Banana 2.1 &rarr; Gemini 3.1 &rarr; Imagen 4 &rarr; Flux)</option>
-                        <optgroup label="🍌 Google Nano Banana Models">
+                        <option value="auto" ${(store.api.imgModel || "auto") === "auto" ? "selected" : ""}>✨ Auto Cascade (Nano Banana 2.1 &rarr; Gemini 3.1 &rarr; Imagen 4)</option>
+                        <optgroup label="🍌 Google Nano Banana Models (Gemini API)">
                           <option value="gemini-nano-banana-2.1" ${store.api.imgModel === "gemini-nano-banana-2.1" ? "selected" : ""}>gemini-nano-banana-2.1 (Nano Banana 2.1 - Primary Workhorse)</option>
                           <option value="gemini-3-pro-image" ${store.api.imgModel === "gemini-3-pro-image" ? "selected" : ""}>gemini-3-pro-image (Nano Banana Pro - Thinking &amp; 4K Art)</option>
                           <option value="gemini-3.1-flash-image" ${store.api.imgModel === "gemini-3.1-flash-image" ? "selected" : ""}>gemini-3.1-flash-image (Nano Banana 2 - Fast Image)</option>
                           <option value="gemini-3.1-flash-lite-image" ${store.api.imgModel === "gemini-3.1-flash-lite-image" ? "selected" : ""}>gemini-3.1-flash-lite-image (Nano Banana 2 Lite - Ultra-fast)</option>
                           <option value="gemini-2.5-flash-image-preview" ${store.api.imgModel === "gemini-2.5-flash-image-preview" ? "selected" : ""}>gemini-2.5-flash-image-preview (Nano Banana Preview)</option>
                         </optgroup>
-                        <optgroup label="🎨 Classic &amp; Alternative Engines">
+                        <optgroup label="🎨 Google Imagen Models (Gemini API)">
                           <option value="imagen-4.0-generate-001" ${store.api.imgModel === "imagen-4.0-generate-001" ? "selected" : ""}>imagen-4.0-generate-001 (Google Imagen 4 High-Res)</option>
                           <option value="imagen-4.0-fast-generate-001" ${store.api.imgModel === "imagen-4.0-fast-generate-001" ? "selected" : ""}>imagen-4.0-fast-generate-001 (Google Imagen 4 Fast)</option>
-                          <option value="flux-cartoon-plate" ${store.api.imgModel === "flux-cartoon-plate" ? "selected" : ""}>flux-cartoon-plate (Neural 2D Cartoon Engine)</option>
                         </optgroup>
                       </select>
                     </div>

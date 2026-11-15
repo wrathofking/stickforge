@@ -72,8 +72,7 @@ if ($provider === 'openai_dalle') {
 // -----------------------------------------------------------------------------
 $geminiKey = sf_get_api_key('gemini', $clientKey);
 
-// If user explicitly chose Neural 2D Cartoon Engine, skip Gemini/Imagen
-if ($selectedModel !== 'flux-cartoon-plate' && !empty($geminiKey)) {
+if (!empty($geminiKey)) {
     $wantsImagenFirst = str_starts_with($selectedModel, 'imagen-');
 
     // Function: Try Google Imagen 4 Predict API
@@ -221,29 +220,10 @@ if ($selectedModel !== 'flux-cartoon-plate' && !empty($geminiKey)) {
 }
 
 // -----------------------------------------------------------------------------
-// Provider 4: Neural 2D Cartoon Engine (Guaranteed High-Res Fallback)
+// If Gemini / Imagen generation could not be completed
 // -----------------------------------------------------------------------------
-$w = ($aspectRatio === '9:16') ? 720 : 1280;
-$h = ($aspectRatio === '9:16') ? 1280 : 720;
-$encodedPrompt = urlencode($visualPrompt);
-$seed = rand(100000, 999999);
-$pollinationsUrl = "https://image.pollinations.ai/prompt/{$encodedPrompt}?width={$w}&height={$h}&model=flux&nologo=true&seed={$seed}";
-
-$res = sf_curl_request($pollinationsUrl, 'GET', [], null, 35);
-if ($res['ok'] && !empty($res['body']) && strlen($res['body']) > 2048) {
-    $b64 = base64_encode($res['body']);
-    sf_json_response([
-        'ok' => true,
-        'dataUrl' => "data:image/jpeg;base64,{$b64}",
-        'provider' => 'neural_2d_flux',
-        'model' => 'flux-cartoon-plate'
-    ]);
+if (!empty($geminiKey)) {
+    sf_json_error('Google Gemini API did not return an image for this prompt. Please check your Gemini API quota or model availability.', 502);
+} else {
+    sf_json_error('Missing Google Gemini API key. Please enter your Gemini API key in API Settings.', 401);
 }
-
-// Return the direct web image URL for client loading if cURL failed
-sf_json_response([
-    'ok' => true,
-    'imageUrl' => $pollinationsUrl,
-    'provider' => 'neural_2d_flux',
-    'model' => 'flux-cartoon-plate'
-]);
